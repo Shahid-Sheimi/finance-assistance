@@ -6,8 +6,8 @@ A Django-based personal finance application with AI-powered receipt processing, 
 
 ```bash
 # Clone the repository
-git clone <repo-url>
-cd revonix_asses
+git clone https://github.com/Shahid-Sheimi/finance-assistance.git
+cd finance-assistance
 
 # Create virtual environment
 python -m venv venv
