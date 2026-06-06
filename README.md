@@ -40,12 +40,13 @@ python manage.py runserver
 - **insights**: Spending insights, savings recommendations, cash flow projections
 
 ### Tech Stack
-- Django 4.2 with SQLite (configurable for PostgreSQL)
-- Django REST Framework for API endpoints
-- Celery for async task processing (receipt OCR, anomaly detection)
+- Django 5.0+ with SQLite (configurable for PostgreSQL)
+- Django REST Framework 3.15+ for API endpoints
+- Celery 5.4+ for async task processing (receipt OCR, anomaly detection)
+- Redis 5.0+ as broker for task queue
 - PaddleOCR API for receipt OCR processing
-- Google Gemini 2.0 Flash for conversational AI
-- dj-rest-auth for authentication endpoints
+- Google Gemini 1.12+ for conversational AI
+- dj-rest-auth 2.6+ for authentication endpoints
 
 ### Conversational Assistant powered by Gemini
 - Natural language queries about spending, budgets, and transactions
@@ -99,40 +100,87 @@ All endpoints are under `/api/v1/`:
 | Anomalies | `/anomalies/`, `/anomalies/unreviewed/` |
 | Budgets | `/budgets/`, `/budgets/overview/`, `/budgets/check_alerts/` |
 
-## Decisions & Trade-offs
+## Features Covered & Completion Level
+
+### Completed ✓
+- **Core App**: Custom User model with email auth, UserProfile, FinancialAccount, UserPreference, UserContext
+- **Transactions App**: Transaction CRUD, Receipt model with OCR, TransactionImport, MerchantCache
+- **Assistant App**: Conversation/Message system, Subscription detection, Anomaly detection
+- **Budgets App**: Budget with period tracking, Alert system
+- **Insights App**: Spending insights, Savings recommendations, Cash flow projections
+- **API Layer**: DRF routers with all endpoints under `/api/v1/`
+- **Async Processing**: Celery setup with Redis broker for OCR and detection tasks
+
+### Stubbed ○
+- Insights generation tasks (missing implementations)
+- LLM context extraction integration
+- Multi-language receipt processing
+
+## Key Architectural & Technical Decisions
 
 ### 1. Custom User Model
 - Extended `AbstractUser` with email as username field
-- Added explicit `related_name` to groups/user_permissions to avoid clashes with auth.User
-- Decision: Custom user allows future extensibility while keeping Django's auth system
+- Added explicit `related_name` to groups/user_permissions to avoid Django auth clashes
+- Rationale: Enables future extensibility while maintaining Django's auth system compatibility
 
-### 2. Receipt Processing
-- PaddleOCR API for high-accuracy OCR text extraction
-- Regex-based parsing for merchant, date, total, tax, tip extraction
-- Trade-off: Using external OCR service for better accuracy vs. local pytesseract/OpenCV
+### 2. Receipt Processing Architecture
+- PaddleOCR API chosen for better accuracy over local pytesseract/OpenCV
+- Regex-based parsing for structured data extraction
+- Trade-off: External API dependency vs. higher accuracy and less maintenance
 
-### 3. Subscription Detection
+### 3. Subscription Detection Algorithm
 - Pattern-based detection using date intervals and amount consistency
-- Detects monthly, weekly, quarterly, yearly patterns
-- Confidence scoring based on interval variance and amount consistency
+- Confidence scoring (0-100) based on interval variance and amount patterns
+- Supports monthly, weekly, quarterly, yearly patterns
 
-### 4. Anomaly Detection
-- Statistical analysis using z-scores for unusual amounts
-- Merchant novelty detection
+### 4. Anomaly Detection Strategy
+- Z-score statistical analysis (threshold 2.5) for unusual amounts
+- Merchant novelty detection for first-time merchants
 - Duplicate charge detection within 3-day windows
 
-### 5. Celery Tasks
-- Async processing for receipt OCR and detection tasks
-- Redis broker for task queue
-- Pattern allows for horizontal scaling
+### 5. Async Task Architecture
+- Celery with Redis broker for horizontal scaling capability
+- Separate tasks for receipt OCR and detection algorithms
+- Pattern allows worker scaling independent of web processes
 
-### 6. Missing Features (Time Constraints)
-- No frontend (would use React/Vue with the DRF API)
-- Limited external API integrations (Plaid, Google Places, etc.)
-- No comprehensive tests
-- OCR limited to English text (could add language detection)
+### 6. Data Privacy & Security
+- `.env` file for secrets (excluded from version control)
+- SQLite for development, PostgreSQL configurable for production
+- All user data isolated by foreign key relationships
 
-## Challenges Handled
+## Assumptions, Trade-offs & Limitations
+
+### Assumptions
+- Users have stable internet connection for PaddleOCR API calls
+- Receipts are primarily in English (multi-language support stubbed)
+- Single currency per user (CurrencyField in UserProfile)
+- Redis server available for Celery broker
+
+### Trade-offs
+- SQLite in dev vs. PostgreSQL in production (simplicity vs. scalability)
+- External OCR service vs. local processing (accuracy vs. autonomy)
+- Regex parsing vs. ML-based parsing (speed vs. robustness)
+
+### Limitations
+- No frontend UI implemented
+- Limited external API integrations (no Plaid, Google Places)
+- No comprehensive test suite
+- Receipt OCR limited to English text
+- Single-user focus (no family/organization sharing)
+
+## What Was Intentionally Skipped or Stubbed
+
+| Feature | Status | Reason |
+|---------|--------|--------|
+| Frontend UI | Skipped | Focus on backend/API first |
+| Production deployment | Skipped | Out of scope for initial implementation |
+| Plaid bank integration | Skipped | Requires external API keys |
+| Google Places merchant lookup | Skipped | Would add API costs |
+| Comprehensive tests | Skipped | Time constraint |
+| Multi-language OCR | Stubbed | PaddleOCR supports it, not implemented |
+| Insights task implementation | Stubbed | Placeholder for future work |
+
+## Challenges Faced & How They Were Handled
 
 1. **User model clashes**: Fixed M2M field reverse accessor conflicts by adding `related_name` to groups/user_permissions
 
@@ -146,53 +194,24 @@ All endpoints are under `/api/v1/`:
 
 6. **Missing task file**: Created `insights/tasks.py` with stub implementations for report generation functions
 
-## Edge Case Handling
+## My Thinking Process & Decision Rationale
 
-### Receipt Processing
-- **Blurry images**: PaddleOCR API handles various image qualities
-- **Rotated receipts**: PaddleOCR automatically handles orientation
-- **Cut-off receipts**: Falls back gracefully with partial data extraction
-- **Non-English text**: PaddleOCR supports multi-language text extraction
+### Backend-First Approach
+- Prioritized API and models first because frontend can be swapped independently
+- Focused on data integrity and async processing patterns early
+- Chose Django for rapid development and built-in admin
 
-### Transaction Import
-- **Duplicates**: Detected by matching date, amount, and merchant
-- **Missing fields**: Handled with defaults and optional fields
-- **Odd formatting**: CSV parsing with pandas handles various formats
-- **Junk rows**: Skipped during processing with error logging
+### Technology Selection
+- **Gemini over OpenAI**: Google's API for cost-effective conversational AI
+- **PaddleOCR over Tesseract**: Better accuracy, less maintenance overhead
+- **Redis/Celery**: Industry standard for Django async processing
 
-### Subscription Detection
-- **Insufficient data**: Requires minimum 2 transactions to detect patterns
-- **Irregular patterns**: Low confidence scores filter out noise
-- **Contradictory data**: Confidence scoring weighs multiple factors
+### Modularity Decisions
+- Separated apps by domain (core, transactions, assistant, budgets, insights)
+- Each app has isolated models and serializers for clean boundaries
+- Task queue allows horizontal scaling without code changes
 
-### Anomaly Detection
-- **Ambiguous patterns**: Uses z-scores (threshold 2.5) for statistical significance
-- **Insufficient baseline**: Requires minimum 10 transactions for analysis
-- **Unknown categories**: Gracefully handles uncategorized transactions
-
-## Completion Status
-
-### Completed ✓
-- Project structure with 5 Django apps
-- All models defined with proper relationships
-- REST API endpoints via DRF routers
-- Receipt OCR processing pipeline
-- Subscription and anomaly detection algorithms
-- Budget tracking with alerts
-- Async task processing setup
-
-### Not Started ✗
-- Frontend UI
-- Production deployment configuration
-- External API integrations (Plaid, external merchant lookup)
-- Comprehensive test suite
-
-### Stubbed/Half-Implemented ○
-- Insights generation tasks (stub implementations)
-- LLM integration for context extraction
-- Receipt language handling beyond English
-
-## Robustness Design (Handling "Unexpected" Cases)
+## Robustness Design
 
 ### 1. Blurry/Rotated/Cut-off Receipts
 - **PaddleOCR API**: Handles image preprocessing, orientation, and quality automatically
