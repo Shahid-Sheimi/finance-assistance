@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Chat — Finance Assistant{% endblock %}
+
+{% block body %}
+<div class="chat-workspace" id="chat-workspace">
+    <!-- Sidebar: conversations -->
+    <aside class="chat-sidebar" id="chat-sidebar">
+        <div class="sidebar-header">
+            <h2>💰 Finance AI</h2>
+            <button type="button" class="btn btn-primary btn-sm" id="new-chat-btn">+ New</button>
+        </div>
+        <div class="sidebar-user">
+            <strong>{{ user_email }}</strong>
+            <span>Private workspace — your data only</span>
+        </div>
+        <div class="conversation-list" id="conversation-list">
+            <div class="memory-empty">Loading conversations…</div>
+        </div>
+        <div class="sidebar-footer">
+            <button type="button" class="btn btn-secondary btn-sm" id="import-btn-sidebar" style="width:100%;margin-bottom:8px;">Import sample data</button>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm" style="width:100%">Logout</button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main chat -->
+    <section class="chat-center">
+        <div class="chat-title-bar">
+            <div>
+                <button type="button" class="mobile-toggle" id="sidebar-toggle">☰</button>
+                <h1 id="active-chat-title">Finance Assistant</h1>
+                <span id="active-chat-meta">Select or start a conversation</span>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="btn btn-secondary btn-sm" id="rename-chat-btn" title="Rename">✎</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="import-btn" title="Import sample data">Import data</button>
+                <button type="button" class="btn btn-danger btn-sm" id="delete-chat-btn" title="Delete chat">Delete</button>
+            </div>
+        </div>
+
+        <main class="chat-main">
+            <div class="chat-messages" id="chat-messages"></div>
+
+            <div class="suggestions" id="suggestions">
+                <button type="button" class="suggestion-chip" data-prompt="How much did I spend this month?">This month</button>
+                <button type="button" class="suggestion-chip" data-prompt="What subscriptions do I have?">Subscriptions</button>
+                <button type="button" class="suggestion-chip" data-prompt="Am I spending more than usual?">Compare</button>
+                <button type="button" class="suggestion-chip" data-prompt="Summarize my finances">Summary</button>
+                <button type="button" class="suggestion-chip" data-prompt="I get paid on the 1st">Save memory</button>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="input-row">
+                    <textarea id="message-input" rows="1" placeholder="Ask about your finances…" maxlength="2000"></textarea>
+                    <div class="input-actions">
+                        <label class="btn btn-secondary btn-icon" title="Upload receipt or bank statement image" style="cursor:pointer;">
+                            🖼️
+                            <input type="file" id="image-input" accept="image/*" class="hidden">
+                        </label>
+                        <label class="btn btn-secondary btn-icon" title="Upload CSV, PDF, Word, or text file" style="cursor:pointer;">
+                            📊
+                            <input type="file" id="csv-input" accept=".csv,.txt,.pdf,.docx,.doc" class="hidden">
+                        </label>
+                        <button type="button" class="btn btn-primary btn-icon" id="send-btn" title="Send">➤</button>
+                    </div>
+                </div>
+                <div class="receipt-row">
+                    <span id="receipt-status">Upload images (receipts/bank statements) or documents (CSV, PDF, Word, TXT)</span>
+                </div>
+            </div>
+        </main>
+    </section>
+
+    <!-- Memory panel -->
+    <aside class="memory-panel" id="memory-panel">
+        <div class="panel-header">
+            <h2>🧠 Memory</h2>
+        </div>
+        <div class="memory-scroll" id="memory-content">
+            <div class="memory-empty">Loading your saved preferences…</div>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.CHAT_CONFIG = {
+    csrfToken: '{{ csrf_token }}',
+    urls: {
+        conversations: '{% url "chat_conversations_list" %}',
+        conversationNew: '{% url "chat_conversation_create" %}',
+        conversationDetail: '/chat/api/conversations/',  /* + id + / */
+        conversationDelete: '/chat/api/conversations/',  /* + id + /delete/ */
+        conversationRename: '/chat/api/conversations/',   /* + id + /rename/ */
+        send: '{% url "chat_send" %}',
+        upload: '{% url "chat_upload_receipt" %}',
+        uploadDocument: '{% url "chat_upload_document" %}',
+        memory: '{% url "chat_memory" %}',
+        memoryDelete: '/chat/api/memory/',  /* + id + /delete/ */
+        importData: '/api/v1/imports/',
+    },
+};
+</script>
+<script src="{% static 'js/chat-app.js' %}"></script>
+{% endblock %}

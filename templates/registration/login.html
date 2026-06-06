@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Login — Finance Assistant{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-logo">
+            <div class="auth-logo-icon">💰</div>
+            <div>
+                <h1>Finance Assistant</h1>
+            </div>
+        </div>
+        <p class="auth-subtitle">Sign in to manage your money with AI</p>
+
+        {% if form.errors %}
+        <div class="alert alert-error">
+            Invalid email or password. Please try again.
+        </div>
+        {% endif %}
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="id_username">Email</label>
+                <input type="email" name="username" id="id_username" required autofocus
+                       placeholder="you@example.com" value="{{ form.username.value|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="id_password">Password</label>
+                <input type="password" name="password" id="id_password" required
+                       placeholder="••••••••">
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit" class="btn btn-primary">Sign in</button>
+        </form>
+
+        <p class="auth-footer">
+            Don't have an account? <a href="{% url 'signup' %}">Create one</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
